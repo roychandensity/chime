@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root {
+  --color-meeting-room: #3b92fd;
+  --color-desk: #34beab;
+  --color-open-collab: #fca53a;
+  --color-not-used: #c1c6cd;
+}
