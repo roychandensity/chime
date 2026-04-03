@@ -117,12 +117,16 @@ function flattenSessionResponse(
 // Raw detections from the Density API are individual sensor events (0-90s each).
 // Merge consecutive detections for the same desk into continuous sessions
 // when the gap between one detection's end and the next's start is under the threshold.
-// Sensor gaps of 5-20 min are common during continuous occupancy (person sitting still).
-// Tuned against Chime SF HQ Nov 2024 deck: 20 min best matches Deep Focus / Pit Stop split.
-const MERGE_GAP_MS = 20 * 60 * 1000; // 20 minutes
+// Sensor gaps of 5-10 min are common during continuous occupancy (person sitting still),
+// so the gap must be large enough to keep those together. But 20 min (the previous value)
+// fused separate desk visits into mega-sessions, inflating Deep Focus from ~5% to ~17%.
+// 10 min balances: keeps continuous presence merged, splits distinct visits apart.
+const MERGE_GAP_MS = 10 * 60 * 1000; // 10 minutes
 // A merged session must contain at least this many raw detections to be kept.
-// Walk-bys produce 1-2 isolated detections; real desk usage produces clusters of many.
-const MIN_DETECTIONS = 3;
+// Walk-bys produce a single isolated detection; real desk usage produces clusters.
+// Lowered from 3 to 2: with the 10-min merge gap, valid short sessions may have
+// only 2 detections per merged window. Keeping at 3 drops too many real sessions.
+const MIN_DETECTIONS = 2;
 const MIN_SESSION_SPAN_MS = 5 * 60 * 1000; // 5 minutes minimum session span
 
 export function mergeRawDetections(
@@ -330,4 +334,30 @@ export function splitDateRange(
   }
 
   return ranges;
+}
+
+const METRICS_CONCURRENCY = 3;
+
+/**
+ * Fetch hourly metrics across a date range, splitting into 7-day chunks
+ * and fetching up to METRICS_CONCURRENCY chunks in parallel.
+ */
+export async function fetchMetricsParallel(
+  spaceIds: string[],
+  startDate: string,
+  endDate: string,
+  timeResolution: "hour" | "day" = "hour",
+): Promise<MetricsDataPoint[]> {
+  const ranges = splitDateRange(startDate, endDate);
+  const allMetrics: MetricsDataPoint[][] = [];
+
+  for (let i = 0; i < ranges.length; i += METRICS_CONCURRENCY) {
+    const batch = ranges.slice(i, i + METRICS_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((range) => fetchMetrics(spaceIds, range.start, range.end, timeResolution))
+    );
+    allMetrics.push(...results);
+  }
+
+  return allMetrics.flat();
 }

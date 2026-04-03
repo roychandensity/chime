@@ -12,6 +12,15 @@ export interface MockDesk {
   expectedCategory: DeskCategory;
 }
 
+/**
+ * Mock desks for testing classifyDesk.
+ *
+ * Classification rules (calibrated against Density desk_sessions_features):
+ *   0 sessions            → Not Used
+ *   avgSessionDuration≥90 → Deep Focus  (Density avg ~135 min)
+ *   totalSessions≥3       → In and Out  (Density avg ~4.5 sessions)
+ *   else                  → Pit Stop    (Density avg ~1.5 sessions, ~35 min)
+ */
 export const MOCK_DESKS: MockDesk[] = [
   // Not Used: zero sessions
   {
@@ -25,7 +34,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 0,
     expectedCategory: "Not Used",
   },
-  // Deep Focus: avg session > 90 min
+  // Deep Focus: avg session >= 90 min
   {
     id: "desk-b",
     name: "Desk-B",
@@ -48,7 +57,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 1.7,
     expectedCategory: "Deep Focus",
   },
-  // Pit Stop: falls through (1 session, avg between 15-90)
+  // Pit Stop: 1 session, avg 20 min (< 3 sessions, < 90 min)
   {
     id: "desk-d",
     name: "Desk-D",
@@ -60,7 +69,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 0.8,
     expectedCategory: "Pit Stop",
   },
-  // Pit Stop: >= 2 sessions but avg <= 30
+  // In and Out: 8 sessions, avg 25 min (>= 3 sessions, < 90 min)
   {
     id: "desk-e",
     name: "Desk-E",
@@ -70,9 +79,9 @@ export const MOCK_DESKS: MockDesk[] = [
     totalSessions: 8,
     avgSessionDuration: 25,
     avgSessionsPerDay: 1.3,
-    expectedCategory: "Pit Stop",
+    expectedCategory: "In and Out",
   },
-  // In and Out: >= 2 sessions AND avg > 30
+  // In and Out: 20 sessions, avg 40 min
   {
     id: "desk-f",
     name: "Desk-F",
@@ -95,7 +104,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 5,
     expectedCategory: "In and Out",
   },
-  // Edge: 2 sessions, avg 31 -> In and Out (just above 30 threshold)
+  // Edge: 2 sessions, avg 31 -> Pit Stop (2 < 3 sessions threshold)
   {
     id: "desk-edge-1",
     name: "Desk-Edge-1",
@@ -105,9 +114,9 @@ export const MOCK_DESKS: MockDesk[] = [
     totalSessions: 2,
     avgSessionDuration: 31,
     avgSessionsPerDay: 2.0,
-    expectedCategory: "In and Out",
+    expectedCategory: "Pit Stop",
   },
-  // Edge: 2 sessions, avg 30 -> Pit Stop (not > 30)
+  // Edge: 2 sessions, avg 30 -> Pit Stop (2 < 3)
   {
     id: "desk-edge-2",
     name: "Desk-Edge-2",
@@ -119,7 +128,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 1.99,
     expectedCategory: "Pit Stop",
   },
-  // Edge: 1 session, avg 91 -> Deep Focus (> 90 takes priority)
+  // Edge: 1 session, avg 91 -> Deep Focus (>= 90 takes priority)
   {
     id: "desk-edge-3",
     name: "Desk-Edge-3",
@@ -131,7 +140,7 @@ export const MOCK_DESKS: MockDesk[] = [
     avgSessionsPerDay: 0.1,
     expectedCategory: "Deep Focus",
   },
-  // Edge: 1 session, avg 14 -> Not Used (low usage)
+  // Edge: 1 session, avg 14 -> Pit Stop (1 < 3, 14 < 90)
   {
     id: "desk-edge-4",
     name: "Desk-Edge-4",
@@ -141,9 +150,9 @@ export const MOCK_DESKS: MockDesk[] = [
     totalSessions: 1,
     avgSessionDuration: 14,
     avgSessionsPerDay: 0.1,
-    expectedCategory: "Not Used",
+    expectedCategory: "Pit Stop",
   },
-  // Edge: 1 session, avg 15 -> Pit Stop (not < 15, falls through)
+  // Edge: 1 session, avg 15 -> Pit Stop
   {
     id: "desk-edge-5",
     name: "Desk-Edge-5",

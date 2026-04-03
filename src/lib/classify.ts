@@ -214,14 +214,29 @@ export function classifyDesks(
   return { desks, summary, floorSummary, neighborhoodSummary, openCloseSummary, deskTypeSummary };
 }
 
+/**
+ * Classify a desk's daily behavior.
+ *
+ * Thresholds calibrated against Density's `desk_sessions_features.behavior_group`
+ * (Hex reference dashboard, Q1 2026 data):
+ *
+ *   Not Used   — 0 sessions
+ *   Pit Stop   — ~1.5 sessions/day, ~35 min avg duration
+ *   In and Out — ~4.5 sessions/day, ~44 min avg duration
+ *   Deep Focus — ~2.5 sessions/day, ~135 min avg duration
+ *
+ * Key differentiators:
+ *   - Deep Focus vs others: avg session duration (130+ min vs 35-50 min)
+ *   - In and Out vs Pit Stop: session count (2+ vs 1, since our 10-min merge gap
+ *     produces fewer sessions than Density's internal model)
+ */
 export function classifyDesk(
   totalSessions: number,
-  avgSessionsPerDay: number,
+  _avgSessionsPerDay: number,
   avgSessionDuration: number
 ): DeskCategory {
   if (totalSessions === 0) return "Not Used";
-  if (avgSessionDuration > 90) return "Deep Focus";
-  if (totalSessions >= 2 && avgSessionDuration > 30) return "In and Out";
-  if (totalSessions <= 1 && avgSessionDuration < 15) return "Not Used";
+  if (avgSessionDuration >= 90) return "Deep Focus";
+  if (totalSessions >= 3) return "In and Out";
   return "Pit Stop";
 }

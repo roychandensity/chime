@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { fetchSessions, mergeRawDetections } from "@/lib/density-client";
+import { fetchSessions, mergeRawDetections, splitDateRange } from "@/lib/density-client";
 import { fetchInBatches } from "@/lib/batch";
 import { classifyDesks } from "@/lib/classify";
 import type { DensitySpace } from "@/lib/types";
@@ -29,7 +29,7 @@ const RequestSchema = z.object({
 });
 
 const BATCH_SIZE = 20;
-const CONCURRENCY = 1;
+const CONCURRENCY = 3;
 
 export async function POST(request: Request) {
   try {
@@ -46,12 +46,16 @@ export async function POST(request: Request) {
     const { space_ids, start_date, end_date, time_filter, day_of_week_filter, spaces } =
       parsed.data;
 
-    const rawDetections = await fetchInBatches(
-      space_ids,
-      BATCH_SIZE,
-      CONCURRENCY,
-      (ids) => fetchSessions(ids, start_date, end_date)
+    // Density API limits sessions to 60-day windows; split into chunks
+    const dateChunks = splitDateRange(start_date, end_date, 60);
+    const chunkResults = await Promise.all(
+      dateChunks.map((chunk) =>
+        fetchInBatches(space_ids, BATCH_SIZE, CONCURRENCY, (ids) =>
+          fetchSessions(ids, chunk.start, chunk.end)
+        )
+      )
     );
+    const rawDetections = chunkResults.flat();
 
     const mergedSessions = mergeRawDetections(rawDetections);
 
